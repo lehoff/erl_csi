@@ -10,12 +10,15 @@
 
 -define(NAME, otp_analysis).
 
+
+%% @doc it is assumed that the root_dir points to a location where a
+%% standard Erlang release directory structure is found, i.e., there
+%% is a lib directory there.
 start(ConfigFile) ->
     Config = read_config(ConfigFile),
     {ok, _Pid} = xref:start(?NAME),
     RootDir = proplists:get_value(root_dir, Config),
-%%    [ xref:add_application(?NAME,RootDir ++ "/" ++ atom_to_list(App)) || App <- Apps ].
-    xref:add_release(?NAME, RootDir).
+    xref:add_release(?NAME, RootDir, {name, ?NAME}).
 
 
 stop() ->
@@ -49,6 +52,8 @@ outgoing_calls(Apps) ->
 core_outgoing_calls() ->
     outgoing_calls(read_apps()).
 
+%% @doc used to see which modules that we do not consider to be part
+%% of the core modules of Erlang for embedded purposes.
 core_analysis() ->
     OutgoingCalls = core_outgoing_calls(),
     io:format("Missing applications per core application~n"),
@@ -61,10 +66,11 @@ module_calls_within_app(App) ->
     Mod2ModCalls = filter_to_modules(M2MCalls, Modules),
     {App, Mod2ModCalls}.
 
+%% @doc only leave the ToMods that are in the Mods list.
 filter_to_modules(M2MCalls, Mods) ->
-    [ {M, intersection(ToMods, Mods)} || {M, ToMods} <- M2MCalls ].
+    [{M, list_intersection(ToMods, Mods)} || {M, ToMods} <- M2MCalls].
 
-intersection(A,B) ->
+list_intersection(A,B) ->
     S1 = sets:from_list(A),
     S2 = sets:from_list(B),
     S  = sets:intersection(S1, S2),
@@ -107,13 +113,14 @@ module_to_module(Mod) ->
     {ok,Pre} = q("XC | " ++ atom_to_string(Mod)),
     Ignore = proplists:get_value(ignore_modules,Opts,[]),
     ToCalls = remove_to(Pre,Ignore),
-    ToMods = lists:usort([ call_get_to_module(C) || C <- ToCalls ]),
+    ToMods = lists:usort([to_module_of_call_tuple(C) || C <- ToCalls]),
     {Mod,ToMods}.
 
+%% @doc remove all calls to modules we are ignoring calls to.
 remove_to(Calls,Ignore) ->
-    [ C || C <- Calls, not lists:member(call_get_to_module(C),Ignore) ].
+    [C || C <- Calls, not lists:member(to_module_of_call_tuple(C),Ignore)].
 
-call_get_to_module({_,{To,_,_}}) ->
+to_module_of_call_tuple({_,{To,_,_}}) ->
                           To.
 
 filter_calls(app2app, Calls) ->
