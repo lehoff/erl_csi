@@ -55,6 +55,22 @@ core_analysis() ->
     [ io:format("~p~n",[Pair])
       || Pair <- OutgoingCalls ].
 
+module_calls_within_app(App) ->
+    Modules = app_modules(App),
+    M2MCalls = [ module_to_module(Mod) || Mod <- Modules ],
+    Mod2ModCalls = filter_to_modules(M2MCalls, Modules),
+    {App, Mod2ModCalls}.
+
+filter_to_modules(M2MCalls, Mods) ->
+    [ {M, intersection(ToMods, Mods)} || {M, ToMods} <- M2MCalls ].
+
+intersection(A,B) ->
+    S1 = sets:from_list(A),
+    S2 = sets:from_list(B),
+    S  = sets:intersection(S1, S2),
+    sets:to_list(S).   
+
+
 info() ->
     xref:info(?NAME).
 
@@ -131,6 +147,10 @@ extract_second(TupleList) ->
 app_functions(App) ->
     {ok, Funs} = q("F * " ++ atom_to_string(App)),
     Funs.
+
+app_modules(App) ->
+    {ok, Modules} = q("(Mod) " ++ atom_to_string(App)),
+    Modules.
 
 
 
