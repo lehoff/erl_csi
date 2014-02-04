@@ -15,10 +15,27 @@
 %% standard Erlang release directory structure is found, i.e., there
 %% is a lib directory there.
 start(ConfigFile) ->
-    Config = read_config(ConfigFile),
+    set_config(ConfigFile),
+    Config = read_config(),
     {ok, _Pid} = xref:start(?NAME),
     RootDir = proplists:get_value(root_dir, Config),
-    xref:add_release(?NAME, RootDir, {name, ?NAME}).
+    %%    xref:add_release(?NAME, RootDir, {name, ?NAME}).
+    Apps = proplists:get_value(applications, Config),
+    lists:foreach(fun (App) ->
+                          add_app(RootDir,App)
+                  end,
+                  Apps).
+
+add_app(RootDir, App) ->
+    AppStr = atom_to_list(App),
+    Dir = string:join([RootDir,AppStr],"/"),
+    case xref:add_application(?NAME, Dir) of
+        {ok, App} ->
+            ok;
+        Error ->
+            exit(Error)
+    end.
+    
 
 
 stop() ->
@@ -29,8 +46,10 @@ read_config(File) ->
     Config.
 
 read_config() ->
-    read_config("otp_analysis.cfg").
+    read_config("tmp_analysis.cfg").
 
+set_config(File) ->
+    {ok, _} = file:copy(File, "tmp_analysis.cfg").
 
 read_apps() ->
     Config = read_config(),
@@ -60,7 +79,7 @@ core_analysis() ->
     [ io:format("~p~n",[Pair])
       || Pair <- OutgoingCalls ].
 
-module_calls_within_app(App) ->
+mod_calls_within_app(App) ->
     Modules = app_modules(App),
     M2MCalls = [ module_to_module(Mod) || Mod <- Modules ],
     Mod2ModCalls = filter_to_modules(M2MCalls, Modules),
@@ -116,12 +135,53 @@ module_to_module(Mod) ->
     ToMods = lists:usort([to_module_of_call_tuple(C) || C <- ToCalls]),
     {Mod,ToMods}.
 
+%% @doc figures out who calls a MFA from outside the module M
+who_calls_mfa({M,_F,_A}=MFA) ->
+    {ok, Pre} = q("XC || " ++ atom_to_string(M)),
+    [ From || {From, MFA2} <- Pre,
+              MFA2==MFA].
+%% @doc who is calling which functions of a module
+who_calls_mod_mfa(Mod) ->
+    {_, FAs} = used_funs(Mod, [Mod]),
+    MFAs = [ {Mod, F, A} || {F,A} <- FAs ],
+    [ {MFA, who_calls_mfa(MFA)} || MFA <- MFAs].
+
+mods_that_call_mod(Mod) ->
+    Opts = read_config(),
+    {ok,Pre} = q("(Mod) XC || " ++ atom_to_string(Mod)),
+    Ignore = proplists:get_value(ignore_modules,Opts,[]),
+    [ From || {From, _} <- Pre,
+              not lists:member(From, Ignore) ].
+
+%% @doc used_funs gives the functions used in a module, but
+%%      ignoring calls from modules in the Ignore list.
+used_funs(Mod, Ignore) ->
+    {ok, Pre} = q("E || " ++ atom_to_string(Mod)),
+    Used1 = remove_from(Pre, Ignore),
+    Used = [{Fun,Arity} || {_,{_,Fun,Arity}} <- Used1],
+    {Mod, lists:usort(Used)}.
+
+%%% @doc prints a list that can be used in a -export directive
+print_used_funs_as_export({_Mod, Used}) ->
+    UsedStrings = [ erlang:atom_to_list(F) ++ "/" ++ erlang:integer_to_list(A)
+                    || {F,A} <- Used ],
+    List = string:join(UsedStrings, ",\n" ++ lists:duplicate(9, " ")),
+    io:format("-export([~s]).~n",[List]).
+
 %% @doc remove all calls to modules we are ignoring calls to.
 remove_to(Calls,Ignore) ->
     [C || C <- Calls, not lists:member(to_module_of_call_tuple(C),Ignore)].
 
+%% @doc remove calls from modules we want to ignore
+remove_from(Calls, Ignore) ->
+    [C || C <- Calls,
+          not lists:member(from_module_of_call_tuple(C), Ignore)].
+
 to_module_of_call_tuple({_,{To,_,_}}) ->
                           To.
+
+from_module_of_call_tuple({{From,_,_}, _}) ->
+    From.
 
 filter_calls(app2app, Calls) ->
     [ {From, [ ToApp || {ToApp,_}<- ToAppModList] }
