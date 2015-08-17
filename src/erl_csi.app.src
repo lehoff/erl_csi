@@ -1,0 +1,7 @@
+% -*-Erlang-*-
+{application, erl_csi, 
+ [ {description, ""}, 
+   {vsn, "0.5"}, 
+   {modules, [otp_analysis]}, 
+   {registered, []}, 
+   {applications, [kernel,stdlib]}]}.
