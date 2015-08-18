@@ -4,4 +4,5 @@
    {vsn, "0.5"}, 
    {modules, [otp_analysis]}, 
    {registered, []}, 
-   {applications, [kernel,stdlib]}]}.
+   {applications, [kernel, stdlib,
+                   compiler, tools]}]}.

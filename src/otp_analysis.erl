@@ -21,14 +21,16 @@ start(ConfigFile) ->
     RootDir = proplists:get_value(root_dir, Config),
     %%    xref:add_release(?NAME, RootDir, {name, ?NAME}).
     Apps = proplists:get_value(applications, Config),
-    lists:foreach(fun (App) ->
-                          add_app(RootDir,App)
+    AppDirs = create_app_dirs(RootDir, Apps),
+    lists:foreach(fun (AppDir) ->
+                          add_app(RootDir,AppDir)
                   end,
-                  Apps).
+                  AppDirs).
 
-add_app(RootDir, App) ->
-    AppStr = atom_to_list(App),
-    Dir = string:join([RootDir,AppStr],"/"),
+add_app(RootDir, AppDir) ->
+%%    AppStr = atom_to_list(App),
+    App = strip_app_version(AppDir),
+    Dir = string:join([RootDir,AppDir],"/"),
     case xref:add_application(?NAME, Dir) of
         {ok, App} ->
             ok;
@@ -36,6 +38,16 @@ add_app(RootDir, App) ->
             exit(Error)
     end.
     
+%%% @doc removes the -x.y.z from the dir name of an application and return the app name as an atom. 
+strip_app_version(Dir) ->
+    {match, ResList} = re:run(Dir, "([^-])*", [{capture,first, list}]),
+    erlang:list_to_atom(hd(ResList)).
+
+%%% @doc finds all app-x.y.z.w dirs in the RootDir and returns the ones that are in list Apps
+create_app_dirs(RootDir, Apps) ->
+    {ok, AllDirs} = file:list_dir(RootDir), 
+    [ Dir || Dir <- AllDirs,
+             lists:member(strip_app_version(Dir), Apps)].
 
 
 stop() ->
