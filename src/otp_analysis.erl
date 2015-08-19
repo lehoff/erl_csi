@@ -25,7 +25,17 @@ start(ConfigFile) ->
     lists:foreach(fun (AppDir) ->
                           add_app(RootDir,AppDir)
                   end,
-                  AppDirs).
+                  AppDirs),
+    add_build_dir(proplists:get_value(build_dir,Config)).
+
+start_clean() ->
+    {ok, _Pid} = xref:start(?NAME).
+    
+
+add_build_dir(undefined) ->
+    ok;
+add_build_dir(Dir) ->
+    xref:add_release(?NAME, Dir).
 
 add_app(RootDir, AppDir) ->
 %%    AppStr = atom_to_list(App),
