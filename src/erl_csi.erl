@@ -4,11 +4,11 @@
 %%      3. otp_analysis:start("otp_analysis.cfg").
 %%      4. otp_analysis:core_analysis().
 
--module(otp_analysis).
+-module(erl_csi).
 
 -compile(export_all).
 
--define(NAME, otp_analysis).
+-define(NAME, csi).
 
 
 %% @doc it is assumed that the root_dir points to a location where a

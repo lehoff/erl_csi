@@ -2,7 +2,7 @@
 {application, erl_csi, 
  [ {description, ""}, 
    {vsn, "0.5"}, 
-   {modules, [otp_analysis]}, 
+   {modules, [erl_csi]}, 
    {registered, []}, 
    {applications, [kernel, stdlib,
                    compiler, tools]}]}.
