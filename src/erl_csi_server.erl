@@ -68,6 +68,6 @@ terminate(_Reason, _State) ->
 code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
 
-calc_ignore_modules(Apps) ->
+calc_ignored_modules(Apps) ->
     lists:flatten( [ erl_csi:app_modules(A) ||
                        A <- Apps]).
