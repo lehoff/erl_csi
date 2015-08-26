@@ -21,7 +21,7 @@
          start_up=[]}).
 
 start_link(MFAs) ->
-    gen_server:start_link({local, ?MODULE}, ?MODULE, [MFAs], []).
+    gen_server:start_link({local, ?MODULE}, ?MODULE, MFAs, []).
 
 
 set_ignored_apps(Apps) ->
@@ -40,12 +40,12 @@ init(MFAs) ->
 
 run_initialisation(MFAs) ->
     erl_csi:start_clean(),
-%    lists:foreach(fun ({M,F,A}) -> erlang:apply(M, F, A) end, MFAs).
-    gen_server:cast(?MODULE, {init, MFAs}).
+    lists:foreach(fun ({M,F,A}) -> erlang:apply(M, F, A) end, MFAs).
+%    gen_server:cast(?MODULE, {init, MFAs}).
 
-handle_cast({init, MFAs}, State) ->
-    lists:foreach(fun ({M,F,A}) -> erlang:apply(M, F, A) end, MFAs),
-    {noreply, State};
+%% handle_cast({init, MFAs}, State) ->
+%%     lists:foreach(fun ({M,F,A}) -> erlang:apply(M, F, A) end, MFAs),
+%%     {noreply, State};
 handle_cast({set_ignored_apps, Apps}, State) ->
     erl_csi:stop(),
     erl_csi:start_clean(),
