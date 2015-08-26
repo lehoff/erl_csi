@@ -49,14 +49,14 @@ run_initialisation(MFAs) ->
 handle_cast({set_ignored_apps, Apps}, State) ->
     erl_csi:stop(),
     run_initialisation(State#state.start_up),
-    IgnoredModules = ignore_modules(Apps),
+    IgnoredModules = calc_ignored_modules(Apps),
     erl_csi:remove_application(Apps),
     {noreply, State#state{ignored_apps=Apps,
                           ignored_modules=IgnoredModules}}.
 
 handle_call(ignored_apps,_From, State) ->
     {reply, State#state.ignored_apps, State};
-handle_call(ignore_modules, _From, State) ->
+handle_call(ignored_modules, _From, State) ->
     {reply, State#state.ignored_modules, State}.
 
 handle_info(_, State) ->
@@ -68,6 +68,6 @@ terminate(_Reason, _State) ->
 code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
 
-ignore_modules(Apps) ->
+calc_ignore_modules(Apps) ->
     lists:flatten( [ erl_csi:app_modules(A) ||
                        A <- Apps]).
