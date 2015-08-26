@@ -11,6 +11,12 @@
 -define(NAME, csi).
 
 
+start(MFAs) ->
+    erl_csi_server:start_link(MFAs).
+
+set_ignored_apps(Apps) ->
+    erl_csi_server:set_ignored_apps(Apps).
+
 add_release(RelDir) ->
     xref:add_release(csi, RelDir).
 
@@ -21,19 +27,19 @@ remove_application(IgnoreApps) ->
 %% @doc it is assumed that the root_dir points to a location where a
 %% standard Erlang release directory structure is found, i.e., there
 %% is a lib directory there.
-start(ConfigFile) ->
-    set_config(ConfigFile),
-    Config = read_config(),
-    {ok, _Pid} = xref:start(?NAME),
-    RootDir = proplists:get_value(root_dir, Config),
-    %%    xref:add_release(?NAME, RootDir, {name, ?NAME}).
-    Apps = proplists:get_value(applications, Config),
-    AppDirs = create_app_dirs(RootDir, Apps),
-    lists:foreach(fun (AppDir) ->
-                          add_app(RootDir,AppDir)
-                  end,
-                  AppDirs),
-    add_build_dir(proplists:get_value(build_dir,Config)).
+%% start(ConfigFile) ->
+%%     set_config(ConfigFile),
+%%     Config = read_config(),
+%%     {ok, _Pid} = xref:start(?NAME),
+%%     RootDir = proplists:get_value(root_dir, Config),
+%%     %%    xref:add_release(?NAME, RootDir, {name, ?NAME}).
+%%     Apps = proplists:get_value(applications, Config),
+%%     AppDirs = create_app_dirs(RootDir, Apps),
+%%     lists:foreach(fun (AppDir) ->
+%%                           add_app(RootDir,AppDir)
+%%                   end,
+%%                   AppDirs),
+%%     add_build_dir(proplists:get_value(build_dir,Config)).
 
 start_clean() ->
     {ok, _Pid} = xref:start(?NAME).
