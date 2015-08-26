@@ -48,7 +48,6 @@ run_initialisation(MFAs) ->
 %%     {noreply, State};
 handle_cast({set_ignored_apps, Apps}, State) ->
     erl_csi:stop(),
-    erl_csi:start_clean(),
     run_initialisation(State#state.start_up),
     IgnoredModules = ignore_modules(Apps),
     erl_csi:remove_application(Apps),
