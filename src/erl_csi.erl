@@ -11,6 +11,13 @@
 -define(NAME, csi).
 
 
+add_release(RelDir) ->
+    xref:add_release(csi, RelDir).
+
+remove_application(IgnoreApps) ->
+    xref:remove_application(csi, IgnoreApps).
+
+
 %% @doc it is assumed that the root_dir points to a location where a
 %% standard Erlang release directory structure is found, i.e., there
 %% is a lib directory there.
@@ -30,7 +37,7 @@ start(ConfigFile) ->
 
 start_clean() ->
     {ok, _Pid} = xref:start(?NAME).
-    
+
 
 add_build_dir(undefined) ->
     ok;
@@ -47,15 +54,15 @@ add_app(RootDir, AppDir) ->
         Error ->
             exit(Error)
     end.
-    
-%%% @doc removes the -x.y.z from the dir name of an application and return the app name as an atom. 
+
+%%% @doc removes the -x.y.z from the dir name of an application and return the app name as an atom.
 strip_app_version(Dir) ->
     {match, ResList} = re:run(Dir, "([^-])*", [{capture,first, list}]),
     erlang:list_to_atom(hd(ResList)).
 
 %%% @doc finds all app-x.y.z.w dirs in the RootDir and returns the ones that are in list Apps
 create_app_dirs(RootDir, Apps) ->
-    {ok, AllDirs} = file:list_dir(RootDir), 
+    {ok, AllDirs} = file:list_dir(RootDir),
     [ Dir || Dir <- AllDirs,
              lists:member(strip_app_version(Dir), Apps)].
 
@@ -115,7 +122,7 @@ list_intersection(A,B) ->
     S1 = sets:from_list(A),
     S2 = sets:from_list(B),
     S  = sets:intersection(S1, S2),
-    sets:to_list(S).   
+    sets:to_list(S).
 
 
 info() ->
@@ -240,9 +247,3 @@ app_functions(App) ->
 app_modules(App) ->
     {ok, Modules} = q("(Mod) " ++ atom_to_string(App)),
     Modules.
-
-
-
-
-
-
