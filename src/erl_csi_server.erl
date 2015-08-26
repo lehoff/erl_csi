@@ -40,9 +40,12 @@ init(MFAs) ->
 
 run_initialisation(MFAs) ->
     erl_csi:start_clean(),
-    lists:foreach(fun ({M,F,A}) -> erlang:apply(M, F, A) end, MFAs).
+%    lists:foreach(fun ({M,F,A}) -> erlang:apply(M, F, A) end, MFAs).
+    gen_server:cast(?MODULE, {init, MFAs}).
 
-
+handle_cast({init, MFAs}, State) ->
+    lists:foreach(fun ({M,F,A}) -> erlang:apply(M, F, A) end, MFAs),
+    {noreply, State};
 handle_cast({set_ignored_apps, Apps}, State) ->
     erl_csi:stop(),
     erl_csi:start_clean(),
