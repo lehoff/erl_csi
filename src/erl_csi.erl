@@ -163,7 +163,7 @@ atom_to_string(A) ->
 
 %% @doc returns all the modules that Mod calls
 module_to_module(Mod) ->
-    {ok,Pre} = q("XC | " ++ atom_to_string(Mod)),
+    {ok,Pre} = q("XC | " ++ atom_to_string(Mod) ++ ":Mod"),
     Ignore = erl_csi_server:ignored_modules(),
     ToCalls = remove_to(Pre,Ignore),
     ToMods = lists:usort([to_module_of_call_tuple(C) || C <- ToCalls]),
