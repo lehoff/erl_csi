@@ -72,6 +72,20 @@ create_app_dirs(RootDir, Apps) ->
     [ Dir || Dir <- AllDirs,
              lists:member(strip_app_version(Dir), Apps)].
 
+%%% @doc returns all apps in the RootDir (should be a lib dir of a release)
+apps_in_dir(RootDir) ->
+    {ok, AllFiles} = file:list_dir(RootDir),
+    AllDirs =  [ Filename
+                 || Filename <- AllFiles,
+                    is_app_dir(string:join([RooDir,Filename],"/"))
+               ],
+    [ strip_app_version(Dir)
+      || Dir <- AllDirs ].
+
+
+is_app_dir(Dir) ->
+    filelib:is_dir(Dir ++ "/ebin").
+
 
 stop() ->
     xref:stop(?NAME).
@@ -252,3 +266,38 @@ app_functions(App) ->
 app_modules(App) ->
     {ok, Modules} = q("(Mod) " ++ atom_to_string(App)),
     Modules.
+
+fun_calls_from_module_to_module(From, To) ->
+    {ok, Res} = xref:q(csi, lists:flatten(io_lib:format("(Fun) ~p -> ~p:Mod", [From, To]))),
+    Res.
+
+app_transitive_calls(App) ->
+    {ok, Res} = erl_csi:q("closure AE | " ++ erl_csi:atom_to_string(App)),
+    [ To || {_From, To} <- Res] -- [App].
+
+module_calls_from_app_to_app(From, To) ->
+    KvMods = erl_csi:app_modules(From),
+    TargetMods = erl_csi:app_modules(To),
+    KvCalls = [ erl_csi:module_to_module(M) || M <- KvMods],
+    All = [ {M, intersection(Calls, TargetMods)}
+            || {M,Calls} <- KvCalls ],
+    [ Mcalls || {_M, Calls} = Mcalls <- All, Calls /= []].
+
+fun_calls_to_app(FromApp, ToApp) ->
+    Mcalls = module_calls_from_app_to_app(FromApp, ToApp),
+    AllMcallPairs = lists:flatten([ flatten_mcall(Mcall) || Mcall <- Mcalls]),
+    [ erl_csi:fun_calls_from_module_to_module(From, To)
+      || {From, To} <- AllMcallPairs].
+
+flatten_mcall({From,ToList}) ->
+    [ {From, To} || To <- ToList].
+
+%% set operations for lists.
+complement(All, A) ->
+    All -- A.
+
+intersection(A, B) ->
+    sets:to_list(sets:intersection(sets:from_list(A),sets:from_list(B))).
+
+union(A, B) ->
+    sets:to_list(sets:union(sets:from_list(A),sets:from_list(B))).
