@@ -10,6 +10,11 @@
 
 -define(NAME, csi).
 
+name() ->
+    csi.
+
+start() ->
+    erl_csi_server:start_link([]).
 
 start(MFAs) ->
     erl_csi_server:start_link(MFAs).
@@ -21,45 +26,41 @@ add_release(RelDir) ->
     xref:add_release(csi, RelDir).
 
 remove_application(IgnoreApps) ->
-    xref:remove_application(csi, IgnoreApps).
-
-
-%% @doc it is assumed that the root_dir points to a location where a
-%% standard Erlang release directory structure is found, i.e., there
-%% is a lib directory there.
-%% start(ConfigFile) ->
-%%     set_config(ConfigFile),
-%%     Config = read_config(),
-%%     {ok, _Pid} = xref:start(?NAME),
-%%     RootDir = proplists:get_value(root_dir, Config),
-%%     %%    xref:add_release(?NAME, RootDir, {name, ?NAME}).
-%%     Apps = proplists:get_value(applications, Config),
-%%     AppDirs = create_app_dirs(RootDir, Apps),
-%%     lists:foreach(fun (AppDir) ->
-%%                           add_app(RootDir,AppDir)
-%%                   end,
-%%                   AppDirs),
-%%     add_build_dir(proplists:get_value(build_dir,Config)).
-
-start_clean() ->
-    {ok, _Pid} = xref:start(?NAME).
+    Present = erl_csi:intersection(erl_csi:apps(), IgnoreApps),
+    xref:remove_application(csi, Present).
 
 
 add_build_dir(undefined) ->
     ok;
 add_build_dir(Dir) ->
-    xref:add_release(?NAME, Dir).
+    xref:add_release(name(), Dir).
 
 add_app(RootDir, AppDir) ->
 %%    AppStr = atom_to_list(App),
     App = strip_app_version(AppDir),
     Dir = string:join([RootDir,AppDir],"/"),
-    case xref:add_application(?NAME, Dir) of
+    case xref:add_application(name(), Dir) of
         {ok, App} ->
             ok;
         Error ->
             exit(Error)
     end.
+
+add_application(App, AppDir) ->
+    case xref:add_application(name(), AppDir, {name, App}) of
+        {ok, App} ->
+            ok;
+        Error ->
+            exit(Error)
+    end.
+
+
+add_all_apps_in_dir(RootDir) ->
+    Apps = apps_in_dir(RootDir),
+    lists:foreach( fun({App,AppDir}) ->
+                             add_application(App, AppDir)
+                   end,
+                   Apps).
 
 %%% @doc removes the -x.y.z from the dir name of an application and return the app name as an atom.
 strip_app_version(Dir) ->
@@ -72,15 +73,18 @@ create_app_dirs(RootDir, Apps) ->
     [ Dir || Dir <- AllDirs,
              lists:member(strip_app_version(Dir), Apps)].
 
-%%% @doc returns all apps in the RootDir (should be a lib dir of a release)
+%%% @doc returns all apps in the RootDir (should be a lib dir of a release) as a list of tuples of
+%%%      the form {atom(), list()}.
 apps_in_dir(RootDir) ->
     {ok, AllFiles} = file:list_dir(RootDir),
     AllDirs =  [ Filename
                  || Filename <- AllFiles,
-                    is_app_dir(string:join([RooDir,Filename],"/"))
-               ],
-    [ strip_app_version(Dir)
+                   is_app_dir(create_file_path(RootDir, Filename))],
+    [ {strip_app_version(Dir), create_file_path(RootDir,Dir)}
       || Dir <- AllDirs ].
+
+create_file_path(RootDir, Filename) ->
+    string:join([RootDir,Filename],"/").
 
 
 is_app_dir(Dir) ->
@@ -88,7 +92,7 @@ is_app_dir(Dir) ->
 
 
 stop() ->
-    xref:stop(?NAME).
+    xref:stop(name()).
 
 read_config(File) ->
     {ok,Config} = file:consult(File),
@@ -146,23 +150,23 @@ list_intersection(A,B) ->
 
 
 info() ->
-    xref:info(?NAME).
+    xref:info(name()).
 
 info(Cat) ->
-    xref:info(?NAME,Cat).
+    xref:info(name(),Cat).
 
 info(Cat,Items) ->
-    xref:info(?NAME,Cat,Items).
+    xref:info(name(),Cat,Items).
 
 analyze(Analysis) ->
-    {ok, Answer} =xref:analyze(?NAME, Analysis),
+    {ok, Answer} =xref:analyze(name(), Analysis),
     Answer.
 
 q(Query) ->
-    xref:q(?NAME,Query).
+    xref:q(name(),Query).
 
 q(Query,Opts) ->
-    xref:q(?NAME,Query,Opts).
+    xref:q(name(),Query,Opts).
 
 apps() ->
     Info = info(applications),
@@ -264,8 +268,12 @@ app_functions(App) ->
     Funs.
 
 app_modules(App) ->
-    {ok, Modules} = q("(Mod) " ++ atom_to_string(App)),
-    Modules.
+    case q("(Mod) " ++ atom_to_string(App)) of
+        {ok, Modules} ->
+            Modules;
+        {error, xref_compiler, {unknown_constant, _AppStr}} ->
+            []
+    end.
 
 fun_calls_from_module_to_module(From, To) ->
     {ok, Res} = xref:q(csi, lists:flatten(io_lib:format("(Fun) ~p -> ~p:Mod", [From, To]))),
@@ -276,9 +284,9 @@ app_transitive_calls(App) ->
     [ To || {_From, To} <- Res] -- [App].
 
 module_calls_from_app_to_app(From, To) ->
-    KvMods = erl_csi:app_modules(From),
-    TargetMods = erl_csi:app_modules(To),
-    KvCalls = [ erl_csi:module_to_module(M) || M <- KvMods],
+    KvMods = app_modules(From),
+    TargetMods = app_modules(To),
+    KvCalls = [ module_to_module(M) || M <- KvMods],
     All = [ {M, intersection(Calls, TargetMods)}
             || {M,Calls} <- KvCalls ],
     [ Mcalls || {_M, Calls} = Mcalls <- All, Calls /= []].
