@@ -182,10 +182,19 @@ atom_to_string(A) ->
 %% @doc returns all the modules that Mod calls
 module_to_module(Mod) ->
     {ok,Pre} = q("XC | " ++ atom_to_string(Mod) ++ ":Mod"),
-    Ignore = erl_csi_server:ignored_modules(),
-    ToCalls = remove_to(Pre,Ignore),
-    ToMods = lists:usort([to_module_of_call_tuple(C) || C <- ToCalls]),
+    ToMods = filter_ignored_modules_from_calls(Pre),
     {Mod,ToMods}.
+
+filter_ignored_modules_from_calls(Pre) ->
+    Ignore = erl_csi_server:ignored_modules(),
+    ToCalls = remove_to(Pre, Ignore),
+    ToMods = lists:usort([to_module_of_call_tuple(C) || C <- ToCalls]),
+    ToMods.
+
+transitive_module_calls_to_modules(Mod) ->
+    {ok, Pre} = q("closure XC | " ++ atom_to_string(Mod) ++ ":Mod"),
+    ToMods = filter_ignored_modules_from_calls(Pre),
+    {Mod, ToMods}.
 
 %% @doc figures out who calls a MFA from outside the module M
 who_calls_mfa({M,_F,_A}=MFA) ->
